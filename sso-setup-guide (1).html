@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azure Entra ID SSO Setup — WTW (generalized)</title>
+<style>
+  :root{
+    --purple:#6B46C1; --purple-dark:#534AB7; --purple-tint:#EEEDFE;
+    --green-bg:#EAF3DE; --green-fg:#27500A; --green-dot:#639922;
+    --amber-bg:#FAEEDA; --amber-fg:#633806; --amber-dot:#EF9F27;
+    --red-bg:#FBEDED; --red-fg:#A32D2D;
+    --ink:#1c1c1e; --ink2:#55555a; --ink3:#86868b;
+    --line:#e7e5e0; --bg:#faf9f6; --card:#ffffff; --warm:#f4f2ec;
+    --radius:14px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:15px}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px 80px}
+  header.top{position:sticky;top:0;z-index:20;background:rgba(250,249,246,.9);backdrop-filter:blur(8px);border-bottom:.5px solid var(--line)}
+  .topinner{max-width:920px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand .wtw{font-family:var(--serif);font-weight:700;color:var(--purple);font-size:22px;letter-spacing:.5px}
+  .brand .t{font-family:var(--serif);font-size:17px}
+  .brand .s{font-size:11px;letter-spacing:.08em;color:var(--ink3);text-transform:uppercase}
+  .controls{display:flex;align-items:center;gap:10px}
+  .btn{font:inherit;font-size:12.5px;border:.5px solid var(--line);background:var(--card);color:var(--ink2);padding:6px 12px;border-radius:9px;cursor:pointer}
+  .btn:hover{background:var(--warm)}
+  h1{font-family:var(--serif);font-size:30px;margin:34px 0 6px}
+  .lede{color:var(--ink2);max-width:70ch}
+  h2{font-family:var(--serif);font-size:20px;margin:0}
+  .callout{border-radius:var(--radius);padding:14px 16px;margin:18px 0;border:.5px solid var(--line);background:var(--card)}
+  .callout.warn{background:var(--amber-bg);border-color:#f0dcb6;color:var(--amber-fg)}
+  .callout.crit{background:var(--red-bg);border-color:#f1cccc;color:var(--red-fg)}
+  .callout.info{background:var(--purple-tint);border-color:#ddd9fb;color:#3c3489}
+  .callout b{font-weight:700}
+  table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:.5px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);font-weight:600;background:var(--warm)}
+  td code,p code,li code{font-family:var(--mono);font-size:12.5px;background:var(--warm);padding:1px 6px;border-radius:6px;white-space:nowrap}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:7px;font-weight:600}
+  .pill.g{background:var(--green-bg);color:var(--green-fg)} .pill.a{background:var(--amber-bg);color:var(--amber-fg)} .pill.p{background:var(--purple-tint);color:#3c3489}
+  details{background:var(--card);border:.5px solid var(--line);border-radius:var(--radius);margin:12px 0;overflow:hidden}
+  details[open]{box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  summary{cursor:pointer;list-style:none;padding:15px 18px;display:flex;align-items:center;gap:12px;font-weight:600}
+  summary::-webkit-details-marker{display:none}
+  summary .chev{transition:transform .2s;color:var(--ink3)}
+  details[open] summary .chev{transform:rotate(90deg)}
+  summary .num{flex:none;width:26px;height:26px;border-radius:8px;background:var(--purple-tint);color:var(--purple-dark);display:grid;place-items:center;font-size:13px;font-weight:700}
+  .body{padding:2px 18px 18px;border-top:.5px solid var(--line)}
+  .body h3{font-size:14.5px;margin:16px 0 6px}
+  .body ol,.body ul{padding-left:20px;margin:8px 0}
+  .body li{margin:5px 0}
+  .code{position:relative;background:#1f1d29;border-radius:10px;margin:10px 0;overflow:hidden}
+  .code pre{margin:0;padding:13px 14px;overflow-x:auto;color:#e9e7f2;font-family:var(--mono);font-size:12.5px;line-height:1.5}
+  .code .cp{position:absolute;top:8px;right:8px;font-size:11px;border:none;background:#36334a;color:#cfcbe6;padding:4px 10px;border-radius:7px;cursor:pointer}
+  .code .cp:hover{background:#46425f}
+  /* flow */
+  .flow{margin:18px 0}
+  .step{display:flex;gap:14px;padding:11px 0;border-bottom:.5px dashed var(--line)}
+  .step:last-child{border-bottom:none}
+  .step .d{flex:none;width:28px;height:28px;border-radius:50%;background:var(--purple);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
+  .step .txt{font-size:14px}
+  .step .txt b{font-weight:600}
+  .step .txt span{color:var(--ink2)}
+  /* checklist */
+  .ck{background:var(--card);border:.5px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .pbar{height:8px;border-radius:99px;background:var(--warm);overflow:hidden;margin:8px 0 14px}
+  .pbar i{display:block;height:100%;width:0;background:var(--green-dot);transition:width .25s}
+  .ck label{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:14px;cursor:pointer}
+  .ck input{margin-top:3px;accent-color:var(--purple);width:16px;height:16px}
+  .ck label.done span{color:var(--ink3);text-decoration:line-through}
+  .legend td:first-child code{background:var(--purple-tint);color:#3c3489}
+  footer{margin-top:36px;color:var(--ink3);font-size:12px;text-align:center}
+  a{color:var(--purple-dark)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="topinner">
+    <div class="brand">
+      <span class="wtw">wtw</span>
+      <span class="t">SSO Setup</span>
+      <span class="s">Azure Entra ID · OAuth 2.0</span>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="toggleAll(true)">Expand all</button>
+      <button class="btn" onclick="toggleAll(false)">Collapse all</button>
+      <button class="btn" onclick="window.print()">Print / PDF</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <h1>Azure Entra ID Single Sign-On — Setup Guide</h1>
+  <p class="lede">End-to-end reference for enabling Entra ID SSO on the application. SSO is implemented
+  entirely <b>backend-side</b> using the OAuth 2.0 Authorization Code flow with a confidential client;
+  the frontend only knows the backend URL and reads a minted app JWT from the callback.</p>
+
+  <div class="callout warn">
+    <b>Status:</b> SSO is not yet wired into the infrastructure — none of the five SSO env vars exist in any
+    Bicep, pipeline, or parameter file today (only <code>JWT_SECRET</code> is wired). This guide covers both
+    the Entra app registration and the steps to wire it up.
+  </div>
+
+  <div class="callout crit">
+    <b>The one unbreakable rule:</b> one account per user, seeded/created with the user's <b>exact</b> Azure AD
+    UPN (the value in the id_token <code>email</code> / <code>preferred_username</code>). If the seeded email
+    doesn't exactly match the real UPN, SSO creates a second, role-less account and the user fails every API
+    call with <code>403 "You are not a member of department"</code>.
+  </div>
+
+  <h2 style="margin-top:30px">How it works</h2>
+  <div class="flow">
+    <div class="step"><div class="d">1</div><div class="txt"><b>User clicks "Sign in with WTW SSO"</b> — a full-page <span>GET navigation</span> (not fetch) to backend <code>/auth/login</code>.</div></div>
+    <div class="step"><div class="d">2</div><div class="txt"><b>Backend mints a 10-min state JWT</b> (CSRF) and <span>302-redirects</span> to the Entra authorize endpoint with scope <code>openid profile email</code>.</div></div>
+    <div class="step"><div class="d">3</div><div class="txt"><b>User authenticates</b> at the Entra prompt.</div></div>
+    <div class="step"><div class="d">4</div><div class="txt"><b>Entra redirects back</b> to backend <code>/auth/azure/callback?code=&state=</code>.</div></div>
+    <div class="step"><div class="d">5</div><div class="txt"><b>Backend re-validates state</b>, then does a <span>server-to-server token exchange</span> (client_id + client_secret + code + redirect_uri).</div></div>
+    <div class="step"><div class="d">6</div><div class="txt"><b>Backend reads id_token claims</b> (<code>oid</code>, email/<code>preferred_username</code>, name), <span>upserts the user by OID</span>, and mints the app's own <b>HS256 app JWT</b>.</div></div>
+    <div class="step"><div class="d">7</div><div class="txt"><b>Backend 302s to the frontend</b> <code>/login?token=&lt;jwt&gt;</code>; the page reads the token, hydrates the profile, and stores the session.</div></div>
+    <div class="step"><div class="d">8</div><div class="txt"><b>Every API call sends</b> <code>Authorization: Bearer &lt;jwt&gt;</code>; backend validates the HS256 token (<span>Mode B</span>) and loads the user by <code>sub</code>.</div></div>
+  </div>
+  <div class="callout info">
+    <b>Coherence note:</b> the callback always mints an <b>HS256</b> app JWT, so the browser flow is coherent only
+    with <code>USE_SIMPLE_AUTH=true</code> (Mode B). The Entra RS256 path (Mode C) validates Entra-issued tokens
+    directly and would reject the broker-minted token. For this browser flow, keep <code>USE_SIMPLE_AUTH=true</code>.
+  </div>
+
+  <!-- PLACEHOLDERS -->
+  <details open>
+    <summary><span class="num">P</span><span class="chev">›</span>Placeholders — substitute per environment</summary>
+    <div class="body">
+      <p>This guide is name-neutral. Replace each token below with your environment's real value before running anything.</p>
+      <table class="legend">
+        <tr><th>Token</th><th>Means</th></tr>
+        <tr><td><code>&lt;APP_NAME&gt;</code></td><td>App registration display name</td></tr>
+        <tr><td><code>&lt;TENANT&gt;</code></td><td>Entra tenant (directory)</td></tr>
+        <tr><td><code>&lt;RESOURCE_GROUP&gt;</code></td><td>Azure resource group</td></tr>
+        <tr><td><code>&lt;CONTAINER_APP_ENV&gt;</code></td><td>Container Apps environment (CAE)</td></tr>
+        <tr><td><code>&lt;BACKEND_APP&gt;</code> / <code>&lt;FRONTEND_APP&gt;</code></td><td>Backend / frontend Container App names</td></tr>
+        <tr><td><code>&lt;CAE_DEFAULT_DOMAIN&gt;</code></td><td>Auto-generated CAE domain (read from live env)</td></tr>
+        <tr><td><code>&lt;ACR_NAME&gt;</code></td><td>Azure Container Registry</td></tr>
+        <tr><td><code>&lt;KEY_VAULT&gt;</code></td><td>Key Vault holding secrets</td></tr>
+        <tr><td><code>&lt;SECRETS_VAR_GROUP&gt;</code></td><td>ADO variable group linked to the Key Vault</td></tr>
+        <tr><td><code>&lt;SQL_SERVER&gt;</code> / <code>&lt;DB_NAME&gt;</code></td><td>Database server / database</td></tr>
+      </table>
+    </div>
+  </details>
+
+  <!-- A -->
+  <details>
+    <summary><span class="num">A</span><span class="chev">›</span>Register the app in Entra ID</summary>
+    <div class="body">
+      <ol>
+        <li><b>New registration</b> — name <code>&lt;APP_NAME&gt;</code>; account type <b>single tenant</b> (v2.0 endpoint).</li>
+        <li><b>Add a Web platform</b> (confidential client posts a secret — not SPA/public). Redirect URI:
+          <div class="code"><button class="cp" onclick="cp(this)">Copy</button><pre>https://&lt;BACKEND_APP&gt;.&lt;CAE_DEFAULT_DOMAIN&gt;/auth/azure/callback</pre></div>
+          Local dev: <code>http://localhost:8000/auth/azure/callback</code>. The registered URI must <b>exactly equal</b> <code>AZURE_AD_REDIRECT_URI</code>.
+        </li>
+        <li><b>Create a client secret</b> — record the value immediately (shown once) and note the expiry. This becomes <code>AZURE_AD_CLIENT_SECRET</code>.</li>
+        <li><b>API permissions</b> (Microsoft Graph, delegated): <code>openid</code>, <code>profile</code>, <code>email</code>, <code>User.Read</code> → then <b>Grant admin consent for &lt;TENANT&gt;</b> (org-wide silent sign-in).</li>
+        <li><b>Token configuration</b> — add the optional <code>email</code> claim to the <b>ID</b> token (not emitted by default in v2.0). Ensure users have a populated mail attribute; otherwise the code falls back to <code>preferred_username</code> (the UPN).</li>
+        <li><b>Collect IDs</b> from Overview: Directory (tenant) ID → <code>ENTRA_TENANT_ID</code>; Application (client) ID → <code>ENTRA_CLIENT_ID</code>.</li>
+      </ol>
+      <div class="callout info">Read the live CAE domain with the Azure CLI:
+        <div class="code"><button class="cp" onclick="cp(this)">Copy</button><pre>az containerapp env show \
+  --name &lt;CONTAINER_APP_ENV&gt; \
+  --resource-group &lt;RESOURCE_GROUP&gt; \
+  --query "properties.defaultDomain" -o tsv</pre></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- B -->
+  <details>
+    <summary><span class="num">B</span><span class="chev">›</span>Backend configuration (env vars)</summary>
+    <div class="body">
+      <h3>Entra / SSO</h3>
+      <table>
+        <tr><th>Env var</th><th>Prod value</th><th>Notes</th></tr>
+        <tr><td><code>ENTRA_TENANT_ID</code></td><td>tenant GUID</td><td>Required when SSO active</td></tr>
+        <tr><td><code>ENTRA_CLIENT_ID</code></td><td>app (client) ID</td><td>Also the RS256 audience</td></tr>
+        <tr><td><code>AZURE_AD_CLIENT_SECRET</code> <span class="pill a">secret</span></td><td>client secret value</td><td>Store KV-backed, never in git</td></tr>
+        <tr><td><code>AZURE_AD_REDIRECT_URI</code></td><td>https://&lt;BACKEND_APP&gt;.&lt;CAE_DEFAULT_DOMAIN&gt;/auth/azure/callback</td><td>Must exactly equal the Entra-registered URI</td></tr>
+        <tr><td><code>AZURE_AD_AUTHORITY</code></td><td>https://login.microsoftonline.com</td><td>RS256 path hardcodes this regardless</td></tr>
+        <tr><td><code>FRONTEND_BASE_URL</code></td><td>https://&lt;FRONTEND_APP&gt;.&lt;CAE_DEFAULT_DOMAIN&gt;</td><td>Post-login redirect target</td></tr>
+      </table>
+      <h3>App JWT</h3>
+      <table>
+        <tr><th>Env var</th><th>Prod value</th><th>Notes</th></tr>
+        <tr><td><code>JWT_SECRET</code> <span class="pill a">secret</span></td><td>strong random</td><td><b>Must override</b> — shipped dev default is public in source</td></tr>
+        <tr><td><code>JWT_ALGORITHM</code></td><td><code>HS256</code></td><td>—</td></tr>
+        <tr><td><code>JWT_EXPIRE_MINUTES</code></td><td><code>480</code></td><td>8-hour app JWT lifetime</td></tr>
+      </table>
+      <h3>Auth-mode flags</h3>
+      <table>
+        <tr><th>Env var</th><th>Prod</th><th>Notes</th></tr>
+        <tr><td><code>SKIP_AUTH</code></td><td><code>false</code></td><td><b>Mode A</b> (dev stub, no token) — off in prod</td></tr>
+        <tr><td><code>USE_SIMPLE_AUTH</code></td><td><code>true</code></td><td><b>Mode B</b> — validates the broker-minted HS256 JWT. Keep true for browser SSO.</td></tr>
+      </table>
+      <p><b>Mode C</b> (both flags <code>false</code>) validates native Entra RS256 bearer tokens and is <i>not</i> for the broker flow. With both false and empty Entra IDs, startup raises <code>ValueError: ENTRA_TENANT_ID and ENTRA_CLIENT_ID are required when USE_SIMPLE_AUTH=false</code>.</p>
+    </div>
+  </details>
+
+  <!-- C -->
+  <details>
+    <summary><span class="num">C</span><span class="chev">›</span>Frontend configuration</summary>
+    <div class="body">
+      <p>The frontend has a <b>single</b> required variable:</p>
+      <table>
+        <tr><th>Env var</th><th>Prod value</th><th>Notes</th></tr>
+        <tr><td><code>NEXT_PUBLIC_API_URL</code></td><td>https://&lt;BACKEND_APP&gt;.&lt;CAE_DEFAULT_DOMAIN&gt;</td><td>Absolute backend base URL, <b>no trailing slash</b></td></tr>
+      </table>
+      <div class="callout warn"><b>Build-time, not runtime.</b> Because it's prefixed <code>NEXT_PUBLIC_</code>, Next.js inlines it at
+        <code>next build</code> into the client bundle. Set it in the <b>build/CI</b> environment; changing it requires a
+        <b>rebuild</b>. A runtime-only container env var will not affect client reads — and if unset at build time, prod
+        silently points at <code>http://localhost:8000</code>.</div>
+      <p>No client secrets, OAuth client IDs, or IdP config live in the frontend — SSO is entirely backend-driven. The
+      callback delivers the token as <code>/login?token=&lt;jwt&gt;</code>; the page reads the <code>token</code> param,
+      hydrates the profile, and stores the session locally.</p>
+    </div>
+  </details>
+
+  <!-- D -->
+  <details>
+    <summary><span class="num">D</span><span class="chev">›</span>Deployment wiring (the five SSO vars)</summary>
+    <div class="body">
+      <p>Container Apps never reads Key Vault directly. Each secret value flows through five layers:</p>
+      <div class="code"><button class="cp" onclick="cp(this)">Copy</button><pre>KV secret → ADO variable group → @secure() Bicep param → Container App secret → secretRef env var</pre></div>
+      <h3>Add these five vars, keeping every layer in sync</h3>
+      <p><code>ENTRA_TENANT_ID</code>, <code>ENTRA_CLIENT_ID</code>, <code>AZURE_AD_CLIENT_SECRET</code>, <code>AZURE_AD_REDIRECT_URI</code>, <code>FRONTEND_BASE_URL</code>.</p>
+      <ol>
+        <li><b>secrets.bicep</b> — new <code>@secure()</code> params + Key Vault secret resources (e.g. <code>ENTRA-TENANT-ID</code>, <code>AZURE-AD-CLIENT-SECRET</code>…). <b>Bump the secret-count guard</b> in the secrets pipeline.</li>
+        <li><b>main.bicep</b> — <code>@secure()</code> params + pass-through to the backend app.</li>
+        <li><b>modules/backend.bicep</b> — <code>@secure()</code> params + <code>secrets[]</code> entries + <code>env[]</code> <code>secretRef</code> entries.</li>
+        <li><b>secrets paramfile step</b> — new <code>$(ENTRA-TENANT-ID)</code> etc. mappings.</li>
+        <li><b>secrets parameters file</b> — values via the <b>KV-backed variable-group path</b> (do not commit the client secret in cleartext).</li>
+        <li><b>Key Vault <code>&lt;KEY_VAULT&gt;</code></b> + variable group <code>&lt;SECRETS_VAR_GROUP&gt;</code>.</li>
+      </ol>
+      <div class="callout crit"><b>Cleartext warning:</b> the secrets parameters file may already commit plaintext secrets. Add
+        <code>AZURE_AD_CLIENT_SECRET</code> via the KV-backed flow only — never in cleartext in git.</div>
+      <h3>Bake the frontend URL at build time</h3>
+      <div class="code"><button class="cp" onclick="cp(this)">Copy</button><pre>DOMAIN=$(az containerapp env show --name &lt;CONTAINER_APP_ENV&gt; \
+  --resource-group &lt;RESOURCE_GROUP&gt; --query "properties.defaultDomain" -o tsv)
+BACKEND_URL="https://&lt;BACKEND_APP&gt;.$DOMAIN"
+az acr build ... --build-arg "NEXT_PUBLIC_API_URL=$BACKEND_URL" ... frontend</pre></div>
+      <div class="callout info"><b>Redirect-URI rule:</b> the Entra app registration's redirect URI must exactly equal both the
+        deployed callback URL and the backend's <code>AZURE_AD_REDIRECT_URI</code> (sent in <i>both</i> the authorize request
+        and the token exchange). Use the raw <code>azurecontainerapps.io</code> FQDN until a custom domain/cert is added.</div>
+    </div>
+  </details>
+
+  <!-- E -->
+  <details>
+    <summary><span class="num">E</span><span class="chev">›</span>Provisioning users &amp; access</summary>
+    <div class="body">
+      <h3>Roles (per-department)</h3>
+      <table>
+        <tr><th>Role</th><th>Effective access</th></tr>
+        <tr><td><span class="pill p">SUBMITTER</span></td><td>Create runs, view own runs, export</td></tr>
+        <tr><td><span class="pill p">REVIEWER</span></td><td>View all dept runs, decide/comment, export, alias-approve (+ create runs)</td></tr>
+        <tr><td><span class="pill p">DEPT_ADMIN</span></td><td>All permissions</td></tr>
+      </table>
+      <p>When a user has multiple role rows, the highest wins: <b>DEPT_ADMIN &gt; REVIEWER &gt; SUBMITTER</b>. A global
+      <code>is_platform_admin</code> flag overrides as DEPT_ADMIN everywhere. Row-level security means REVIEWER/DEPT_ADMIN
+      see all dept runs; SUBMITTER sees only their own.</p>
+      <h3>Two ways to provision</h3>
+      <ul>
+        <li><b>Admin portal</b> — the dept-admin user-management screen (create/re-add a user, set/replace role).</li>
+        <li><b>Seed migration</b> — insert user + role rows; seeded rows start with <code>entra_object_id = NULL</code> and are <b>claimed on first SSO sign-in</b>.</li>
+      </ul>
+      <div class="callout crit"><b>On first SSO:</b> a seeded row is claimed <b>only</b> when <code>entra_object_id IS NULL</code>
+        AND its email equals the id_token email (case-insensitive, otherwise exact). No match → a brand-new row with
+        <b>zero memberships</b> → <code>403 not a member</code>. Seed the user's exact UPN.</div>
+      <h3>Run migrations (manual, out-of-band)</h3>
+      <p>There is no migration pipeline — run them as a one-shot Container App Job using the backend image:</p>
+      <div class="code"><button class="cp" onclick="cp(this)">Copy</button><pre>az containerapp job create --name &lt;MIGRATE_JOB&gt; \
+  --resource-group &lt;RESOURCE_GROUP&gt; \
+  --image &lt;ACR_NAME&gt;.azurecr.io/&lt;BACKEND_IMAGE&gt;:&lt;TAG&gt; \
+  --replica-timeout 300 \
+  --command "python" "run_migrations.py" \
+  --env-vars DB_SERVER=&lt;SQL_SERVER&gt; DB_NAME=&lt;DB_NAME&gt; ...</pre></div>
+    </div>
+  </details>
+
+  <!-- F -->
+  <details>
+    <summary><span class="num">F</span><span class="chev">›</span>Verify &amp; smoke test</summary>
+    <div class="body">
+      <ol>
+        <li>Backend env set: <code>SKIP_AUTH=false</code>, <code>USE_SIMPLE_AUTH=true</code>, strong <code>JWT_SECRET</code>, all four Entra values + <code>FRONTEND_BASE_URL</code>.</li>
+        <li>Frontend bundle <b>built</b> with the correct <code>NEXT_PUBLIC_API_URL</code> (rebuild if changed).</li>
+        <li>Test user has a row seeded with their <b>exact UPN</b> and an appropriate role.</li>
+        <li>Open <code>/login</code> → click "Sign in with WTW SSO" → authenticate.</li>
+      </ol>
+      <p><b>Success looks like:</b> browser lands on the role-appropriate page; local session stores a valid
+      <code>access_token</code>, email, role, dept; calls to <code>/me</code>, <code>/me/departments</code> return
+      <code>200</code> with the Bearer header.</p>
+      <h3>Troubleshooting</h3>
+      <table>
+        <tr><th>Symptom</th><th>Cause → Fix</th></tr>
+        <tr><td><code>403</code> "not a member of department"</td><td>UPN ≠ seeded email → correct the seeded row to the exact UPN (or grant the role to the created row). One account per user.</td></tr>
+        <tr><td><code>503</code> from <code>/auth/*</code></td><td>One of the three Entra values is empty → set all three.</td></tr>
+        <tr><td><code>400</code> "invalid state" / loop</td><td>State JWT failed — clock skew or <code>JWT_SECRET</code> changed mid-flow → stable secret, retry from clean <code>/login</code>.</td></tr>
+        <tr><td><code>502</code> "oid/email claim missing"</td><td>id_token lacked claim → configure the optional <code>email</code> claim; ensure mail attribute or rely on <code>preferred_username</code>.</td></tr>
+        <tr><td>Redirect URI mismatch at Entra</td><td>Registered URI ≠ <code>AZURE_AD_REDIRECT_URI</code> → make both exactly equal.</td></tr>
+        <tr><td>Frontend hits <code>localhost:8000</code> in prod</td><td><code>NEXT_PUBLIC_API_URL</code> unset at <b>build</b> → rebuild image with the build-arg.</td></tr>
+        <tr><td>Startup <code>ValueError</code> (Entra IDs required)</td><td>Mode C engaged without Entra IDs → set them, or keep <code>USE_SIMPLE_AUTH=true</code>.</td></tr>
+      </table>
+    </div>
+  </details>
+
+  <!-- G -->
+  <details>
+    <summary><span class="num">G</span><span class="chev">›</span>Security notes</summary>
+    <div class="body">
+      <ul>
+        <li><b>Rotate the client secret before expiry:</b> create a new Entra secret → update KV / variable group → redeploy/restart backend → remove the old one. KV-backed path only.</li>
+        <li><b>Override <code>JWT_SECRET</code>:</b> the shipped dev default is public in source — if not overridden, app JWTs are forgeable by anyone who reads the repo. Strong, unique per environment.</li>
+        <li><b>Token in query string:</b> the callback returns the app JWT as <code>/login?token=...</code>, which can leak via history, <code>Referer</code>, and access logs. Consider a one-time code or secure cookie as future hardening.</li>
+        <li><b>Verify the id_token signature (TODO):</b> the callback currently decodes the id_token without re-verifying the RS256 signature/issuer/audience/expiry (it relies on the server-to-server TLS exchange). Recommend verifying against the Entra JWKS and checking <code>aud</code>/<code>iss</code>/<code>exp</code>.</li>
+      </ul>
+    </div>
+  </details>
+
+  <h2 style="margin:32px 0 0">Setup checklist</h2>
+  <div class="ck" style="margin-top:12px">
+    <div id="ptext" style="font-size:13px;color:var(--ink2)">0 of 0 complete</div>
+    <div class="pbar"><i id="pfill"></i></div>
+    <label><input type="checkbox" class="chk"><span>App registered (single tenant, v2.0) with Web redirect URI</span></label>
+    <label><input type="checkbox" class="chk"><span>Client secret created &amp; recorded; expiry noted for rotation</span></label>
+    <label><input type="checkbox" class="chk"><span>Graph delegated permissions added + admin consent granted</span></label>
+    <label><input type="checkbox" class="chk"><span>Optional <b>email</b> claim added to ID token</span></label>
+    <label><input type="checkbox" class="chk"><span>Tenant ID + Client ID collected</span></label>
+    <label><input type="checkbox" class="chk"><span>Five SSO vars wired through all Bicep/pipeline layers (KV-backed)</span></label>
+    <label><input type="checkbox" class="chk"><span>Frontend rebuilt with correct <code>NEXT_PUBLIC_API_URL</code></span></label>
+    <label><input type="checkbox" class="chk"><span>Redirect URI matches <code>AZURE_AD_REDIRECT_URI</code> exactly</span></label>
+    <label><input type="checkbox" class="chk"><span>Users seeded with exact UPN + role; migrations run</span></label>
+    <label><input type="checkbox" class="chk"><span>First-login smoke test passes (role-appropriate landing page)</span></label>
+  </div>
+
+  <footer>Generalized SSO setup reference · substitute all <code>&lt;PLACEHOLDERS&gt;</code> per environment.</footer>
+</div>
+
+<script>
+  function toggleAll(open){document.querySelectorAll('details').forEach(d=>d.open=open);}
+  function cp(btn){
+    var code=btn.parentElement.querySelector('pre').innerText;
+    navigator.clipboard.writeText(code).then(function(){
+      var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o;},1400);
+    });
+  }
+  (function(){
+    var boxes=Array.prototype.slice.call(document.querySelectorAll('.chk'));
+    var fill=document.getElementById('pfill'),txt=document.getElementById('ptext');
+    function upd(){
+      var done=boxes.filter(function(b){return b.checked;}).length;
+      fill.style.width=(done/boxes.length*100)+'%';
+      txt.textContent=done+' of '+boxes.length+' complete';
+      boxes.forEach(function(b){b.parentElement.classList.toggle('done',b.checked);});
+    }
+    boxes.forEach(function(b){b.addEventListener('change',upd);});
+    upd();
+  })();
+</script>
+</body>
+</html>
